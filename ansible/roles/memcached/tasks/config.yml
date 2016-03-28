@@ -1,11 +1,15 @@
 ---
-- name: Ensuring config directory exists
+- name: Ensuring config directories exist
   file:
-    path: "{{ node_config_directory }}/memcached/"
+    path: "{{ node_config_directory }}/{{ item }}"
     state: "directory"
-    recurse: "yes"
+    recurse: yes
+  with_items:
+    - "memcached"
 
-- name: Copying over config(s)
+- name: Copying over config.json files for services
   template:
-    src: "memcached.conf.j2"
-    dest: "{{ node_config_directory }}/memcached/memcached.conf"
+    src: "{{ item }}.json.j2"
+    dest: "{{ node_config_directory }}/{{ item }}/config.json"
+  with_items:
+    - "memcached"

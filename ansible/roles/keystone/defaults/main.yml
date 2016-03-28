@@ -6,7 +6,7 @@ project_name: "keystone"
 ####################
 keystone_database_name: "keystone"
 keystone_database_user: "keystone"
-keystone_database_address: "{{ kolla_internal_address }}"
+keystone_database_address: "{{ kolla_internal_fqdn }}"
 
 
 ####################
@@ -18,11 +18,10 @@ keystone_image_full: "{{ keystone_image }}:{{ keystone_tag }}"
 
 
 ####################
-# Openstack
+# OpenStack
 ####################
-keystone_public_address: "{{ kolla_external_address }}"
-keystone_admin_address: "{{ kolla_internal_address }}"
-keystone_internal_address: "{{ kolla_internal_address }}"
+keystone_admin_url: "{{ admin_protocol }}://{{ kolla_internal_fqdn }}:{{ keystone_admin_port }}/v3"
+keystone_internal_url: "{{ internal_protocol }}://{{ kolla_internal_fqdn }}:{{ keystone_public_port }}/v3"
+keystone_public_url: "{{ public_protocol }}://{{ kolla_external_fqdn }}:{{ keystone_public_port }}/v3"
 
-keystone_logging_verbose: "{{ openstack_logging_verbose }}"
 keystone_logging_debug: "{{ openstack_logging_debug }}"

@@ -1,25 +1,46 @@
 ---
-- name: Ensuring config directory exists
+- name: Setting sysctl values
+  sysctl: name={{ item.name }} value={{ item.value }} sysctl_set=yes
+  with_items:
+    - { name: "net.ipv4.ip_nonlocal_bind", value: 1}
+    - { name: "net.unix.max_dgram_qlen", value: 128}
+  when: set_sysctl | bool
+
+- name: Ensuring config directories exist
   file:
-    path: "{{ node_config_directory }}/haproxy/"
+    path: "{{ node_config_directory }}/{{ item }}"
     state: "directory"
-    recurse: "yes"
+    recurse: yes
+  with_items:
+    - "keepalived"
+    - "haproxy"
 
-- name: Copying over config(s)
+- name: Copying over config.json files for services
   template:
-    src: "haproxy.cfg.j2"
-    dest: "{{ node_config_directory }}/haproxy/haproxy.cfg"
+    src: "{{ item }}.json.j2"
+    dest: "{{ node_config_directory }}/{{ item }}/config.json"
+  with_items:
+    - "keepalived"
+    - "haproxy"
 
-- name: Allowing non-local IP binding
-  sysctl: name="net.ipv4.ip_nonlocal_bind" value=1 sysctl_set=yes
-
-- name: Ensuring config directory exists
-  file:
-    path: "{{ node_config_directory }}/keepalived/"
-    state: "directory"
-    recurse: "yes"
-
-- name: Copying over config(s)
+- name: Copying over haproxy.cfg
   template:
-    src: "keepalived.conf.j2"
-    dest: "{{ node_config_directory }}/keepalived/keepalived.conf"
+    src: "{{ item }}.cfg.j2"
+    dest: "{{ node_config_directory }}/{{ item }}/{{ item }}.cfg"
+  with_items:
+    - "haproxy"
+
+- name: Copying over keepalived.conf
+  template:
+    src: "{{ item }}.conf.j2"
+    dest: "{{ node_config_directory }}/{{ item }}/{{ item }}.conf"
+  with_items:
+    - "keepalived"
+
+- name: Copying over haproxy.pem
+  copy:
+    src: "{{ kolla_external_fqdn_cert }}"
+    dest: "{{ node_config_directory }}/haproxy/{{ item }}"
+  with_items:
+    - "haproxy.pem"
+  when: kolla_enable_tls_external | bool

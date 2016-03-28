@@ -1,19 +1,41 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-ironic-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}ironic-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum -y install \
-    openstack-ironic-conductor \
+        openstack-ironic-conductor \
+        qemu-img \
     && yum clean all
+
+    {% elif base_distro in ['ubuntu'] %}
+
+RUN apt-get install -y --no-install-recommends \
+        ironic-conductor \
+        qemu-utils \
+        ipmitool \
+    && apt-get clean
+
+    {% endif %}
+{% elif install_type == 'source' %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
+
+RUN yum -y install \
+        qemu-img \
+        ipmitool \
+    && yum clean all
+
+    {% elif base_distro in ['ubuntu', 'debian'] %}
+
+RUN apt-get install -y --no-install-recommends \
+        qemu-utils \
+        ipmitool \
+    && apt-get clean
 
     {% endif %}
 {% endif %}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
-
 {{ include_footer }}
+
+USER ironic

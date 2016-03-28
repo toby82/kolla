@@ -1,11 +1,14 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
-RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
-    && /bin/false
+RUN yum install -y \
+        openstack-gnocchi-common \
+    && yum clean all
 
+    {% endif %}
 {% elif install_type == 'source' %}
     {% if base_distro in ['ubuntu', 'debian'] %}
 
@@ -14,12 +17,14 @@ RUN apt-get install -y --no-install-recommends libpq-dev \
 
     {% endif %}
 
-ADD gnocchi-base.tar /
-RUN ln -s /gnocchi-* gnocchi \
+ADD gnocchi-base-archive /gnocchi-base-source
+RUN ln -s gnocchi-base-source/* gnocchi \
     && useradd --user-group gnocchi \
-    && pip --no-cache-dir install /gnocchi \
+    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt tooz /gnocchi \
     && mkdir -p /etc/gnocchi /var/log/gnocchi /home/gnocchi \
     && cp -r /gnocchi/etc/* /etc/gnocchi/ \
     && chown -R gnocchi: /etc/gnocchi /var/log/gnocchi /home/gnocchi
 
 {% endif %}
+
+RUN usermod -a -G kolla gnocchi

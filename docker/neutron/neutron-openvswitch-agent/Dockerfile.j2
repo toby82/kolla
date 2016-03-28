@@ -1,8 +1,8 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-neutron-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net.kolla)
+FROM {{ namespace }}/{{ image_prefix }}neutron-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['centos', 'fedora', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 # Install required packages
 RUN yum install -y \
@@ -10,23 +10,17 @@ RUN yum install -y \
         openvswitch \
     && yum clean all
 
-    {% endif %}
-{% elif install_type == 'source' %}
-    {% if base_distro in ['centos', 'fedora', 'oraclelinux'] %}
+    {% elif base_distro in ['ubuntu'] %}
 
-# Install required packages
-RUN yum install -y \
-        #TODO: will be addressed later
-        https://rdoproject.org/repos/openstack-kilo/rdo-release-kilo.rpm \
-        openvswitch \
-    && yum clean all
+RUN apt-get install -y --no-install-recommends \
+        neutron-plugin-openvswitch \
+        openvswitch-switch \
+        neutron-plugin-openvswitch-agent \
+    && apt-get clean
 
     {% endif %}
 {% endif %}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
-
 {{ include_footer }}
+
+USER neutron

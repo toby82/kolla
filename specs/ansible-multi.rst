@@ -23,7 +23,7 @@ To implement HA in our containers, we need multi-node deployment operational
 so we can validate the high availability implementation.
 
 To meet our community approved mission, we must implement a deployment tool
-and Ansible provides the most effecient development path while ensuring ease
+and Ansible provides the most efficient development path while ensuring ease
 of use.
 
 Use cases
@@ -228,7 +228,7 @@ Further the [ipman] section will be added to the file placed by Ansible in
 the target host's configuration directory.
 
 The end result of the merge will be a single file on the host that is in the
-appropriate format for the Openstack service to consume containing the content
+appropriate format for the OpenStack service to consume containing the content
 of both the Ansible default file and the augmentation file.
 
 The final implication of these Ansible best practices is that an Operator can

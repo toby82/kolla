@@ -2,6 +2,11 @@
 bind_ip = {{ hostvars[inventory_hostname]['ansible_' + api_interface]['ipv4']['address'] }}
 bind_port = {{ swift_proxy_server_port }}
 
+log_address = /var/lib/kolla/heka/log
+log_name = {{ service_name }}
+log_facility = LOG_LOCAL0
+log_level = INFO
+
 [pipeline:main]
 pipeline = catch_errors gatekeeper healthcheck cache container_sync bulk ratelimit authtoken keystoneauth slo dlo proxy-server
 
@@ -12,7 +17,7 @@ account_autocreate = true
 
 [filter:cache]
 use = egg:swift#memcache
-memcache_servers = {% for host in groups['swift-proxy-server'] %}{{ hostvars[host]['ansible_' + api_interface]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+memcache_servers = {% for host in groups['swift-proxy-server'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
 
 [filter:catch_errors]
 use = egg:swift#catch_errors
@@ -25,14 +30,19 @@ use = egg:swift#proxy_logging
 
 [filter:authtoken]
 paste.filter_factory = keystonemiddleware.auth_token:filter_factory
-auth_uri = http://{{ kolla_internal_address }}:{{ keystone_public_port }}
-auth_url = http://{{ kolla_internal_address }}:{{ keystone_admin_port }}
-auth_plugin = password
+auth_uri = {{ internal_protocol }}://{{ kolla_internal_fqdn }}:{{ keystone_public_port }}
+auth_url = {{ admin_protocol }}://{{ kolla_internal_fqdn }}:{{ keystone_admin_port }}
+auth_type = password
 project_domain_id = default
 user_domain_id = default
 project_name = service
 username = {{ swift_keystone_user }}
 password = {{ swift_keystone_password }}
+
+memcache_security_strategy = ENCRYPT
+memcache_secret_key = {{ memcache_secret_key }}
+memcached_servers = {% for host in groups['memcached'] %}{{ hostvars[host]['ansible_' + hostvars[host]['api_interface']]['ipv4']['address'] }}:{{ memcached_port }}{% if not loop.last %},{% endif %}{% endfor %}
+
 
 [filter:keystoneauth]
 use = egg:swift#keystoneauth

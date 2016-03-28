@@ -19,7 +19,9 @@
 # access all of the neutron network namespaces as well as all
 # containers that bind mount /run/netns from the host.
 
-# This is required for "thin" neutron containers to function properly
+# This is required for "thin" neutron containers to function properly. However,
+# due to a missing feature/bug in Docker it is not possible to use this script
+# at this time. Once Docker updates with this feature we will usre this again.
 
 import nsenter
 import subprocess
@@ -33,12 +35,12 @@ def host_mnt_exec(cmd):
                 nsenter.Namespace(
                     '1',
                     'mnt',
-                    proc='/opt/kolla/host_proc/'))
+                    proc='/var/lib/kolla/host_proc/'))
             process_ = subprocess.Popen(cmd)
 
     except Exception as e:
         print(
-            "An error has occured with a component that Kolla manages."
+            "An error has occurred with a component that Kolla manages."
             " Please file a bug")
         print("Error: ", e)
 
@@ -55,9 +57,9 @@ if len(sys.argv) > 2:
         cmd = ["/usr/bin/env", "ip"] + sys.argv[1:]
         sys.exit(host_mnt_exec(cmd).returncode)
     else:
-        cmd = ["/opt/kolla/ip"] + sys.argv[1:]
+        cmd = ["/var/lib/kolla/ip"] + sys.argv[1:]
 else:
-    cmd = ["/opt/kolla/ip"]
+    cmd = ["/var/lib/kolla/ip"]
 
     if len(sys.argv) == 2:
         cmd = cmd + sys.argv[1:]

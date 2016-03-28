@@ -1,32 +1,56 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net.kolla)
+FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['centos', 'fedora', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum -y install \
         openstack-dashboard \
         httpd \
         mod_wsgi \
     && yum clean all \
+    && useradd --user-group horizon \
+    && sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf \
+    && ln -s /usr/share/openstack-dashboard/openstack_dashboard /usr/lib/python2.7/site-packages/openstack_dashboard \
+    && ln -s /usr/share/openstack-dashboard/static /usr/lib/python2.7/site-packages/static \
+    && chown -R horizon: /etc/openstack-dashboard /usr/share/openstack-dashboard \
     && chown -R apache: /usr/share/openstack-dashboard/static
 
-# The chown is required because of this packaging bug:
-# https://bugzilla.redhat.com/show_bug.cgi?id=1219006
+RUN sed -i "s|WEBROOT = '/dashboard/'|WEBROOT = '/'|" /etc/openstack-dashboard/local_settings \
+    && cp /usr/share/openstack-dashboard/manage.py /usr/bin/manage.py \
+    && /usr/bin/python /usr/bin/manage.py collectstatic --noinput --clear
 
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    {% elif base_distro in ['ubuntu'] %}
 
-RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
-    && /bin/false
+RUN apt-get install -y --no-install-recommends \
+        openstack-dashboard \
+        apache2 \
+        libapache2-mod-wsgi \
+    && echo > /etc/apache2/ports.conf \
+    && apt-get clean \
+    && ln -s ../mods-available/headers.load  /etc/apache2/mods-enabled/headers.load
+
+RUN cp /usr/share/openstack-dashboard/openstack_dashboard/conf/*.json /etc/openstack-dashboard \
+    && sed -i "s|WEBROOT='/horizon/'|WEBROOT = '/'|" /etc/openstack-dashboard/local_settings.py \
+    && sed -i "s|^POLICY_FILES_PATH|POLICY_FILES_PATH = '/etc/openstack-dashboard'|" /etc/openstack-dashboard/local_settings.py \
+    && cp /usr/share/openstack-dashboard/manage.py /usr/bin/manage.py \
+    && /usr/bin/python /usr/bin/manage.py collectstatic --noinput \
+    && rm /etc/apache2/conf-enabled/openstack-dashboard.conf \
+    && rm /etc/openstack-dashboard/local_settings.py \
+    && rm /usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py \
+    && ln -s /etc/openstack-dashboard/local_settings /usr/share/openstack-dashboard/openstack_dashboard/local/local_settings.py \
+    && ln -s /usr/share/openstack-dashboard/openstack_dashboard /usr/lib/python2.7/site-packages/openstack_dashboard \
+    && ln -s /usr/share/openstack-dashboard/static /usr/lib/python2.7/site-packages/static
 
     {% endif %}
 {% elif install_type == 'source' %}
-    {% if base_distro in ['centos', 'fedora', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum install -y \
         httpd \
         mod_wsgi \
-    && yum clean all
+    && yum clean all \
+    && sed -i -r 's,^(Listen 80),#\1,' /etc/httpd/conf/httpd.conf
 
     {% elif base_distro in ['ubuntu', 'debian'] %}
 
@@ -34,25 +58,26 @@ RUN apt-get install -y --no-install-recommends \
         apache2 \
         libapache2-mod-wsgi \
     && echo > /etc/apache2/ports.conf \
-    && apt-get clean
+    && apt-get clean \
+    && ln -s ../mods-available/headers.load  /etc/apache2/mods-enabled/headers.load
 
     {% endif %}
 
-ADD horizon.tar /
-RUN ln -s /horizon-* horizon \
-    && pip --no-cache-dir install /horizon \
+ADD horizon-archive /horizon-source
+RUN ln -s horizon-source/* horizon \
+    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /horizon \
     && useradd --user-group horizon \
     && mkdir -p /etc/openstack-dashboard /home/horizon \
-    && ln -s openstack_dashboard/static/ /usr/lib/python2.7/site-packages/static \
-    && ln -s /etc/openstack-dashboard/local_settings /usr/lib/python2.7/site-packages/openstack_dashboard/local/local_settings.py \
+    && ln -s /etc/openstack-dashboard/local_settings /var/lib/kolla/venv/lib/python2.7/site-packages/openstack_dashboard/local/local_settings.py \
     && cp -r /horizon/openstack_dashboard/conf/* /etc/openstack-dashboard/ \
-    && chown -R horizon: /etc/openstack-dashboard /home/horizon /usr/lib/python2.7/site-packages/openstack_dashboard/static
+    && cp /horizon/openstack_dashboard/local/local_settings.py.example /etc/openstack-dashboard/local_settings \
+    && cp /horizon/manage.py /var/lib/kolla/venv/bin/manage.py \
+    && /var/lib/kolla/venv/bin/python /var/lib/kolla/venv/bin/manage.py collectstatic --noinput --clear \
+    && chown -R horizon: /etc/openstack-dashboard /home/horizon /var/lib/kolla/venv/lib/python2.7/site-packages/static
 
 {% endif %}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
+COPY extend_start.sh /usr/local/bin/kolla_extend_start
+RUN chmod 755 /usr/local/bin/kolla_extend_start
 
 {{ include_footer }}

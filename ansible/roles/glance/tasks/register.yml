@@ -1,14 +1,13 @@
 ---
 - name: Creating the Glance service and endpoint
-  command: docker exec -t kolla_ansible /usr/bin/ansible localhost
+  command: docker exec -t kolla_toolbox /usr/bin/ansible localhost
     -m kolla_keystone_service
     -a "service_name=glance
         service_type=image
         description='Openstack Image'
         endpoint_region={{ openstack_region_name }}
-        admin_url='http://{{ kolla_internal_address }}:{{ glance_api_port }}'
-        internal_url='http://{{ kolla_internal_address }}:{{ glance_api_port }}'
-        public_url='http://{{ kolla_external_address }}:{{ glance_api_port }}'
+        url='{{ item.url }}'
+        interface='{{ item.interface }}'
         region_name={{ openstack_region_name }}
         auth={{ '{{ openstack_glance_auth }}' }}"
     -e "{'openstack_glance_auth':{{ openstack_glance_auth }}}"
@@ -18,9 +17,13 @@
   retries: 10
   delay: 5
   run_once: True
+  with_items:
+    - {'interface': 'admin', 'url': '{{ glance_admin_endpoint }}'}
+    - {'interface': 'internal', 'url': '{{ glance_internal_endpoint }}'}
+    - {'interface': 'public', 'url': '{{ glance_public_endpoint }}'}
 
 - name: Creating the Glance project, user, and role
-  command: docker exec -t kolla_ansible /usr/bin/ansible localhost
+  command: docker exec -t kolla_toolbox /usr/bin/ansible localhost
     -m kolla_keystone_user
     -a "project=service
         user=glance

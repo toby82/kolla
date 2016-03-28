@@ -1,19 +1,41 @@
 ---
-- name: Starting Ansible container
-  docker:
-    docker_api_version: "{{ docker_api_version }}"
-    net: host
-    pull: "{{ docker_pull_policy }}"
-    restart_policy: "{{ docker_restart_policy }}"
-    restart_policy_retry: "{{ docker_restart_policy_retry }}"
-    state: reloaded
-    registry: "{{ docker_registry }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    insecure_registry: "{{ docker_insecure_registry }}"
-    name: kolla_ansible
-    image: "{{ ansible_image_full }}"
-    env:
+- name: Starting heka container
+  kolla_docker:
+    action: "start_container"
+    common_options: "{{ docker_common_options }}"
+    environment:
+      KOLLA_CONFIG_STRATEGY: "{{ config_strategy }}"
+      SKIP_LOG_SETUP: "true"
+    image: "{{ heka_image_full }}"
+    name: "heka"
+    volumes:
+      - "{{ node_config_directory }}/heka/:{{ container_config_directory }}/:ro"
+      - "kolla_logs:/var/log/kolla/"
+      - "heka:/var/cache/hekad"
+      - "heka_socket:/var/lib/kolla/heka/"
+
+- name: Starting kolla-toolbox container
+  kolla_docker:
+    action: "start_container"
+    common_options: "{{ docker_common_options }}"
+    environment:
       ANSIBLE_NOCOLOR: "1"
       ANSIBLE_LIBRARY: "/usr/share/ansible"
-    command: "/bin/sleep infinity"
+    image: "{{ ansible_image_full }}"
+    name: "kolla_toolbox"
+    privileged: True
+    volumes:
+      - "/dev/:/dev/"
+      - "/run/:/run/"
+      - "kolla_logs:/var/log/kolla/"
+
+- name: Starting cron container
+  kolla_docker:
+    action: "start_container"
+    common_options: "{{ docker_common_options }}"
+    image: "{{ cron_image_full }}"
+    name: "cron"
+    volumes:
+      - "{{ node_config_directory }}/cron/:{{ container_config_directory }}/:ro"
+      - "heka_socket:/var/lib/kolla/heka/"
+      - "kolla_logs:/var/log/kolla/"

@@ -1,6 +1,6 @@
 ---
 - name: Creating Keystone database
-  command: docker exec -t kolla_ansible /usr/bin/ansible localhost
+  command: docker exec -t kolla_toolbox /usr/bin/ansible localhost
     -m mysql_db
     -a "login_host='{{ database_address }}'
         login_port='{{ mariadb_port }}'
@@ -8,12 +8,18 @@
         login_password='{{ database_password }}'
         name='{{ keystone_database_name }}'"
   register: database
-  changed_when: "{{ database.stdout.find('localhost | SUCCESS => ') != -1 and (database.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed }}"
+  changed_when: "{{ database.stdout.find('localhost | SUCCESS => ') != -1 and
+                    (database.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed }}"
   failed_when: database.stdout.split()[2] != 'SUCCESS'
   run_once: True
+  delegate_to: "{{ groups['keystone'][0] }}"
+
+- name: Reading json from variable
+  set_fact:
+    database_created: "{{ (database.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed }}"
 
 - name: Creating Keystone database user and setting permissions
-  command: docker exec -t kolla_ansible /usr/bin/ansible localhost
+  command: docker exec -t kolla_toolbox /usr/bin/ansible localhost
     -m mysql_user
     -a "login_host='{{ database_address }}'
         login_port='{{ mariadb_port }}'
@@ -25,47 +31,11 @@
         priv='{{ keystone_database_name }}.*:ALL'
         append_privs='yes'"
   register: database_user_create
-  changed_when: "{{ database.stdout.find('localhost | SUCCESS => ') != -1 and (database_user_create.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed }}"
+  changed_when: "{{ database_user_create.stdout.find('localhost | SUCCESS => ') != -1 and
+                    (database_user_create.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed }}"
   failed_when: database_user_create.stdout.split()[2] != 'SUCCESS'
   run_once: True
+  delegate_to: "{{ groups['keystone'][0] }}"
 
-- name: Starting Keystone bootstrap container
-  docker:
-    detach: False
-    docker_api_version: "{{ docker_api_version }}"
-    net: host
-    pull: "{{ docker_pull_policy }}"
-    restart_policy: "no"
-    state: reloaded
-    registry: "{{ docker_registry }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    insecure_registry: "{{ docker_insecure_registry }}"
-    name: bootstrap_keystone
-    image: "{{ keystone_image_full }}"
-    volumes: "{{ node_config_directory }}/keystone/:/opt/kolla/keystone/:ro"
-    env:
-      KOLLA_BOOTSTRAP:
-      KOLLA_CONFIG_STRATEGY: "{{ config_strategy }}"
-      KEYSTONE_ADMIN_PASSWORD: "{{ keystone_admin_password }}"
-      REGION_NAME: "{{ openstack_region_name }}"
-      PUBLIC_URL: "http://{{ kolla_external_address }}:{{ keystone_public_port }}/v2.0"
-      INTERNAL_URL: "http://{{ kolla_internal_address }}:{{ keystone_public_port }}/v2.0"
-      ADMIN_URL: "http://{{ kolla_internal_address }}:{{ keystone_admin_port }}/v2.0"
-      OS_SERVICE_TOKEN: "{{ keystone_admin_token }}"
-      OS_SERVICE_ENDPOINT: "http://{{ hostvars[inventory_hostname]['ansible_' + api_interface]['ipv4']['address'] }}:{{ keystone_admin_port }}/v2.0"
-  run_once: True
-  when: database.stdout.find('localhost | SUCCESS => ') != -1 and (database.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed
-
-# https://github.com/ansible/ansible-modules-core/pull/1031
-- name: Waiting for Keystone bootstrap container to exit
-  command: docker wait bootstrap_keystone
-  run_once: True
-  when: database.stdout.find('localhost | SUCCESS => ') != -1 and (database.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed
-
-- name: Cleaning up Keystone boostrap container
-  docker:
-    name: bootstrap_keystone
-    image: "{{ keystone_image_full }}"
-    state: absent
-  when: database.stdout.find('localhost | SUCCESS => ') != -1 and (database.stdout.split('localhost | SUCCESS => ')[1]|from_json).changed
+- include: bootstrap_service.yml
+  when: database_created

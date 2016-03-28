@@ -1,19 +1,23 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-designate-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net.kolla)
+FROM {{ namespace }}/{{ image_prefix }}designate-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['centos', 'fedora', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum install -y bind \
     && yum clean all \
-    && cp -pr /var/named /opt/kolla/var-named
+    && mkdir -p /var/lib/kolla/ \
+    && cp -pr /var/named /var/lib/kolla/var-named
+
+    {% elif base_distro in ['ubuntu'] %}
+
+RUN apt-get install -y --no-install-recommends \
+        bind9 \
+    && apt-get clean
 
     {% endif %}
 {% endif %}
 
-COPY start.sh /start.sh
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
-
 {{ include_footer }}
+
+USER designate

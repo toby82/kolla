@@ -1,14 +1,13 @@
 ---
 - name: Creating the Neutron service and endpoint
-  command: docker exec -t kolla_ansible /usr/bin/ansible localhost
+  command: docker exec -t kolla_toolbox /usr/bin/ansible localhost
     -m kolla_keystone_service
     -a "service_name=neutron
         service_type=network
         description='Openstack Networking'
         endpoint_region={{ openstack_region_name }}
-        admin_url='http://{{ kolla_internal_address }}:{{ neutron_server_port }}'
-        internal_url='http://{{ kolla_internal_address }}:{{ neutron_server_port }}'
-        public_url='http://{{ kolla_external_address }}:{{ neutron_server_port }}'
+        url='{{ item.url }}'
+        interface='{{ item.interface }}'
         region_name={{ openstack_region_name }}
         auth={{ '{{ openstack_neutron_auth }}' }}"
     -e "{'openstack_neutron_auth':{{ openstack_neutron_auth }}}"
@@ -18,9 +17,13 @@
   retries: 10
   delay: 5
   run_once: True
+  with_items:
+    - {'interface': 'admin', 'url': '{{ neutron_admin_endpoint }}'}
+    - {'interface': 'internal', 'url': '{{ neutron_internal_endpoint }}'}
+    - {'interface': 'public', 'url': '{{ neutron_public_endpoint }}'}
 
 - name: Creating the Neutron project, user, and role
-  command: docker exec -t kolla_ansible /usr/bin/ansible localhost
+  command: docker exec -t kolla_toolbox /usr/bin/ansible localhost
     -m kolla_keystone_user
     -a "project=service
         user=neutron

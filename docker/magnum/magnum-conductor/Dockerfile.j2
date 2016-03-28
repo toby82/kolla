@@ -1,12 +1,13 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type  }}-magnum-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}magnum-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
-RUN yum -y install openstack-magnum-conductor \
-    tar \
-  && yum clean all
+RUN yum -y install \
+        openstack-magnum-conductor \
+        tar \
+    && yum clean all
 
 # Install kubectl binary (ugh)
 RUN cd /tmp && curl -L https://github.com/GoogleCloudPlatform/kubernetes/releases/download/v0.15.0/kubernetes.tar.gz -o /tmp/kubernetes.tar.gz && /usr/bin/tar -xzvf /tmp/kubernetes.tar.gz && cp -a /tmp/kubernetes/platforms/linux/amd64/kubectl /usr/bin/kubectl && rm -rf /tmp/kubernetes
@@ -14,10 +15,6 @@ RUN cd /tmp && curl -L https://github.com/GoogleCloudPlatform/kubernetes/release
     {% endif %}
 {% endif %}
 
-COPY ./start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
-
-
 {{ include_footer }}
+
+USER magnum

@@ -1,9 +1,16 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type  }}-cinder-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}cinder-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
-COPY ./start.sh /
-COPY config-external.sh /opt/kolla/
+{% if install_type == 'binary' %}
+    {% if base_distro in ['ubuntu'] %}
 
-CMD ["/start.sh"]
+RUN apt-get install -y --no-install-recommends \
+        cinder-scheduler \
+    && apt-get clean
+
+    {% endif %}
+{% endif %}
 
 {{ include_footer }}
+
+USER cinder

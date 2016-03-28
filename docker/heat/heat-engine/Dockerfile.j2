@@ -1,28 +1,26 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-heat-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}heat-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
+# TODO(SamYaple): until packaging is fixed, all of the python clients below are required
+# http://pkgs.fedoraproject.org/cgit/openstack-heat.git/tree/openstack-heat.spec#n248
 RUN yum -y install \
-    # until http://pkgs.fedoraproject.org/cgit/openstack-heat.git/tree/openstack-heat.spec#n248 \
-    # is updated, the clients must remain here: \
-    python-barbicanclient \
-    python-zaqarclient \
-    openstack-heat-engine \
+        python-barbicanclient \
+        python-zaqarclient \
+        openstack-heat-engine \
     && yum clean all
 
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+   {% elif base_distro in ['ubuntu'] %}
 
-RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
-    && /bin/false
+RUN apt-get install -y --no-install-recommends \
+        heat-engine \
+    && apt-get clean
 
     {% endif %}
 {% endif %}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
-
 {{ include_footer }}
+
+USER heat

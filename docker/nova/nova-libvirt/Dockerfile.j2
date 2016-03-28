@@ -1,7 +1,7 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
-{% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+{% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum -y install \
         libvirt-daemon \
@@ -10,23 +10,29 @@ RUN yum -y install \
         libvirt-daemon-driver-nwfilter \
         libvirt-daemon-config-nwfilter \
         libvirt-daemon-driver-lxc \
+        ceph-common \
     && yum clean all
 
 {% elif base_distro in ['ubuntu', 'debian'] %}
 
 RUN apt-get install -y --no-install-recommends \
+        ceph-common \
         libvirt-bin \
         dmidecode \
         pm-utils \
         qemu \
+        qemu-block-extra \
         ebtables \
-    && apt-get clean
+        xen-utils-4.6 \
+    && apt-get clean \
+    && mkdir -p /etc/ceph \
+    && rm /etc/libvirt/qemu/networks/default.xml /etc/libvirt/qemu/networks/autostart/default.xml \
+    && sed -i 's|.*stdio_handler.*|stdio_handler = "file"|' /etc/libvirt/qemu.conf
 
 {% endif %}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
+COPY extend_start.sh /usr/local/bin/kolla_extend_start
+RUN chmod 755 /usr/local/bin/kolla_extend_start \
+    && useradd --user-group nova
 
 {{ include_footer }}

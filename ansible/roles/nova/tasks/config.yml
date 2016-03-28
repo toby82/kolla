@@ -1,120 +1,70 @@
 ---
-- include: ../../config.yml
-  vars:
-    service_name: "nova-api"
-    config_source:
-      - "roles/{{ project_name }}/templates/nova.conf.j2"
-      - "/etc/kolla/config/global.conf"
-      - "/etc/kolla/config/database.conf"
-      - "/etc/kolla/config/messaging.conf"
-      - "/etc/kolla/config/{{ project_name }}.conf"
-      - "/etc/kolla/config/{{ project_name }}/{{ service_name }}.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_minimal"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_global"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_database"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_messaging"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_augment"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ service_name }}.conf_augment"
-    config_dest: "{{ node_config_directory }}/{{ service_name }}/nova.conf"
-  when: inventory_hostname in groups['nova-api']
+- name: Setting sysctl values
+  sysctl: name={{ item.name }} value={{ item.value }} sysctl_set=yes
+  with_items:
+    - { name: "net.bridge.bridge-nf-call-iptables", value: 1}
+    - { name: "net.bridge.bridge-nf-call-ip6tables", value: 1}
+    - { name: "net.ipv4.conf.all.rp_filter", value: 0}
+    - { name: "net.ipv4.conf.default.rp_filter", value: 0}
+  when:
+    - set_sysctl | bool
+    - inventory_hostname in groups['compute']
 
-- include: ../../config.yml
-  vars:
-    service_name: "nova-conductor"
-    config_source:
-      - "roles/{{ project_name }}/templates/nova.conf.j2"
-      - "/etc/kolla/config/global.conf"
-      - "/etc/kolla/config/database.conf"
-      - "/etc/kolla/config/messaging.conf"
-      - "/etc/kolla/config/{{ project_name }}.conf"
-      - "/etc/kolla/config/{{ project_name }}/{{ service_name }}.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_minimal"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_global"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_database"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_messaging"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_augment"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ service_name }}.conf_augment"
-    config_dest: "{{ node_config_directory }}/{{ service_name }}/nova.conf"
-  when: inventory_hostname in groups['nova-conductor']
+- name: Ensuring config directories exist
+  file:
+    path: "{{ node_config_directory }}/{{ item }}"
+    state: "directory"
+    recurse: yes
+  with_items:
+    - "nova-api"
+    - "nova-compute"
+    - "nova-compute-ironic"
+    - "nova-conductor"
+    - "nova-consoleauth"
+    - "nova-libvirt"
+    - "nova-novncproxy"
+    - "nova-scheduler"
+    - "nova-spicehtml5proxy"
 
-- include: ../../config.yml
-  vars:
-    service_name: "nova-consoleauth"
-    config_source:
-      - "roles/{{ project_name }}/templates/nova.conf.j2"
-      - "/etc/kolla/config/global.conf"
-      - "/etc/kolla/config/database.conf"
-      - "/etc/kolla/config/messaging.conf"
-      - "/etc/kolla/config/{{ project_name }}.conf"
-      - "/etc/kolla/config/{{ project_name }}/{{ service_name }}.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_minimal"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_global"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_database"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_messaging"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_augment"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ service_name }}.conf_augment"
-    config_dest: "{{ node_config_directory }}/{{ service_name }}/nova.conf"
-  when: inventory_hostname in groups['nova-consoleauth']
+- name: Copying over config.json files for services
+  template:
+    src: "{{ item }}.json.j2"
+    dest: "{{ node_config_directory }}/{{ item }}/config.json"
+  with_items:
+    - "nova-api"
+    - "nova-compute"
+    - "nova-compute-ironic"
+    - "nova-conductor"
+    - "nova-consoleauth"
+    - "nova-libvirt"
+    - "nova-novncproxy"
+    - "nova-scheduler"
+    - "nova-spicehtml5proxy"
 
-- include: ../../config.yml
-  vars:
-    service_name: "nova-scheduler"
-    config_source:
-      - "roles/{{ project_name }}/templates/nova.conf.j2"
+- name: Copying over nova.conf
+  merge_configs:
+    vars:
+      service_name: "{{ item }}"
+    sources:
+      - "{{ role_path }}/templates/nova.conf.j2"
       - "/etc/kolla/config/global.conf"
       - "/etc/kolla/config/database.conf"
       - "/etc/kolla/config/messaging.conf"
-      - "/etc/kolla/config/{{ project_name }}.conf"
-      - "/etc/kolla/config/{{ project_name }}/{{ service_name }}.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_minimal"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_global"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_database"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_messaging"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_augment"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ service_name }}.conf_augment"
-    config_dest: "{{ node_config_directory }}/{{ service_name }}/nova.conf"
-  when: inventory_hostname in groups['nova-scheduler']
+      - "/etc/kolla/config/nova.conf"
+      - "/etc/kolla/config/nova/{{ item }}.conf"
+      - "/etc/kolla/config/nova/{{ inventory_hostname }}/nova.conf"
+    dest: "{{ node_config_directory }}/{{ item }}/nova.conf"
+  with_items:
+    - "nova-api"
+    - "nova-compute"
+    - "nova-compute-ironic"
+    - "nova-conductor"
+    - "nova-consoleauth"
+    - "nova-novncproxy"
+    - "nova-scheduler"
+    - "nova-spicehtml5proxy"
 
-- include: ../../config.yml
-  vars:
-    service_name: "nova-compute"
-    config_source:
-      - "roles/{{ project_name }}/templates/nova.conf.j2"
-      - "/etc/kolla/config/global.conf"
-      - "/etc/kolla/config/database.conf"
-      - "/etc/kolla/config/messaging.conf"
-      - "/etc/kolla/config/{{ project_name }}.conf"
-      - "/etc/kolla/config/{{ project_name }}/{{ service_name }}.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_minimal"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_global"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_database"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_messaging"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_augment"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ service_name }}.conf_augment"
-    config_dest: "{{ node_config_directory }}/{{ service_name }}/nova.conf"
-  when: inventory_hostname in groups['compute']
-
-- include: ../../config.yml
-  vars:
-    service_name: "nova-novncproxy"
-    config_source:
-      - "roles/{{ project_name }}/templates/nova.conf.j2"
-      - "/etc/kolla/config/global.conf"
-      - "/etc/kolla/config/database.conf"
-      - "/etc/kolla/config/messaging.conf"
-      - "/etc/kolla/config/{{ project_name }}.conf"
-      - "/etc/kolla/config/{{ project_name }}/{{ service_name }}.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_minimal"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_global"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_database"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_messaging"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ project_name }}.conf_augment"
-      - "{{ node_templates_directory }}/{{ service_name }}/{{ service_name }}.conf_augment"
-    config_dest: "{{ node_config_directory }}/{{ service_name }}/nova.conf"
-  when: inventory_hostname in groups['nova-novncproxy']
+- name: Copying over libvirtd.conf
+  template:
+    src: "libvirtd.conf.j2"
+    dest: "{{ node_config_directory }}/nova-libvirt/libvirtd.conf"

@@ -1,19 +1,11 @@
 ---
 - name: Starting horizon container
-  docker:
-    docker_api_version: "{{ docker_api_version }}"
-    net: host
-    pull: "{{ docker_pull_policy }}"
-    restart_policy: "{{ docker_restart_policy }}"
-    restart_policy_retry: "{{ docker_restart_policy_retry }}"
-    state: reloaded
-    registry: "{{ docker_registry }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    insecure_registry: "{{ docker_insecure_registry }}"
-    name: horizon
+  kolla_docker:
+    action: "start_container"
+    common_options: "{{ docker_common_options }}"
     image: "{{ horizon_image_full }}"
-    volumes: "{{ node_config_directory }}/horizon/:/opt/kolla/horizon/:ro"
-    env:
-      KOLLA_CONFIG_STRATEGY: "{{ config_strategy }}"
+    name: "horizon"
+    volumes: 
+      - "{{ node_config_directory }}/horizon/:{{ container_config_directory }}/:ro"
+      - "kolla_logs:/var/log/kolla/"
   when: inventory_hostname in groups['horizon']

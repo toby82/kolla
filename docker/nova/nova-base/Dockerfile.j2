@@ -1,28 +1,32 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum -y install \
         openstack-nova-common \
         python-keystoneclient \
         python-cinderclient \
-        python-nova \
         bridge-utils \
+        openvswitch \
     && yum clean all
 
-    {% elif base_distro in ['ubuntu', 'debian'] %}
+    {% elif base_distro in ['ubuntu'] %}
 
-RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
-    && /bin/false
+RUN apt-get install -y --no-install-recommends \
+        nova-common \
+        python-nova \
+        bridge-utils \
+        openvswitch-switch \
+    && apt-get clean
 
     {% endif %}
 {% elif install_type == 'source' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
-RUN yum -y install \
-        bridge-utils \
+RUN yum -y install bridge-utils \
+        openvswitch \
     && yum clean all
 
     {% elif base_distro in ['ubuntu', 'debian'] %}
@@ -39,12 +43,24 @@ RUN apt-get install -y --no-install-recommends \
 
     {% endif %}
 
-ADD nova-base.tar /
-RUN ln -s /nova-* nova \
+ADD nova-base-archive /nova-base-source
+RUN ln -s nova-base-source/* nova \
     && useradd --user-group nova \
-    && pip --no-cache-dir install /nova \
-    && mkdir -p /etc/nova /var/log/nova /home/nova \
+    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /nova \
+    && mkdir -p /etc/nova /home/nova /var/lib/nova \
     && cp -r /nova/etc/nova/* /etc/nova/ \
-    && chown -R nova: /etc/nova /var/log/nova /home/nova
+    && chown -R nova: /etc/nova /home/nova /var/lib/nova \
+    && sed -i 's|^exec_dirs.*|exec_dirs=/var/lib/kolla/venv/bin,/sbin,/usr/sbin,/bin,/usr/bin,/usr/local/bin,/usr/local/sbin|g' /etc/nova/rootwrap.conf
+
+COPY nova_sudoers /etc/sudoers.d/nova_sudoers
+RUN chmod 750 /etc/sudoers.d \
+    && chmod 440 /etc/sudoers.d/nova_sudoers
 
 {% endif %}
+
+COPY extend_start.sh /usr/local/bin/kolla_extend_start
+
+RUN touch /usr/local/bin/kolla_nova_extend_start \
+    && chmod 755 /usr/local/bin/kolla_extend_start /usr/local/bin/kolla_nova_extend_start
+
+RUN usermod -a -G kolla nova

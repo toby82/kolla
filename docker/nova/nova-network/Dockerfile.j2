@@ -1,8 +1,8 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-nova-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}nova-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum -y install \
         openstack-nova-network \
@@ -10,9 +10,15 @@ RUN yum -y install \
         initscripts \
     && yum clean all
 
+    {% elif base_distro in ['ubuntu'] %}
+
+RUN apt-get install -y --no-install-recommends \
+        nova-network \
+    && apt-get clean
+
     {% endif %}
 {% elif install_type == 'source' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
 RUN yum -y install initscripts \
     && yum clean all
@@ -20,9 +26,6 @@ RUN yum -y install initscripts \
     {% endif %}
 {% endif %}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
-
 {{ include_footer }}
+
+USER nova

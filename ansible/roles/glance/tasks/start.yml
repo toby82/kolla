@@ -1,40 +1,23 @@
 ---
-- name: Starting Glance-registry container
-  docker:
-    docker_api_version: "{{ docker_api_version }}"
-    net: host
-    pull: "{{ docker_pull_policy }}"
-    restart_policy: "{{ docker_restart_policy }}"
-    restart_policy_retry: "{{ docker_restart_policy_retry }}"
-    state: reloaded
-    registry: "{{ docker_registry }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    insecure_registry: "{{ docker_insecure_registry }}"
-    name: glance_registry
+- name: Starting glance-registry container
+  kolla_docker:
+    action: "start_container"
+    common_options: "{{ docker_common_options }}"
     image: "{{ glance_registry_image_full }}"
-    volumes: "{{ node_config_directory }}/glance-registry/:/opt/kolla/glance-registry/:ro"
-    volumes_from:
-      - glance_data
-    env:
-      KOLLA_CONFIG_STRATEGY: "{{ config_strategy }}"
+    name: "glance_registry"
+    volumes:
+      - "{{ node_config_directory }}/glance-registry/:{{ container_config_directory }}/:ro"
+      - "kolla_logs:/var/log/kolla/"
   when: inventory_hostname in groups['glance-registry']
 
-- name: Starting Glance-api container
-  docker:
-    docker_api_version: "{{ docker_api_version }}"
-    net: host
-    pull: "{{ docker_pull_policy }}"
-    restart_policy: "{{ docker_restart_policy }}"
-    restart_policy_retry: "{{ docker_restart_policy_retry }}"
-    state: reloaded
-    registry: "{{ docker_registry }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    insecure_registry: "{{ docker_insecure_registry }}"
-    name: glance_api
+- name: Starting glance-api container
+  kolla_docker:
+    action: "start_container"
+    common_options: "{{ docker_common_options }}"
     image: "{{ glance_api_image_full }}"
-    volumes: "{{ node_config_directory }}/glance-api/:/opt/kolla/glance-api/:ro"
-    env:
-      KOLLA_CONFIG_STRATEGY: "{{ config_strategy }}"
+    name: "glance_api"
+    volumes:
+      - "{{ node_config_directory }}/glance-api/:{{ container_config_directory }}/:ro"
+      - "glance:/var/lib/glance/"
+      - "kolla_logs:/var/log/kolla/"
   when: inventory_hostname in groups['glance-api']

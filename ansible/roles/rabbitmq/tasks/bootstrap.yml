@@ -1,57 +1,36 @@
 ---
-# TODO(SamYaple): Improve check with a custom docker module to check if alive
-- name: Checking if a rabbitmq_data exists
-  command: docker inspect rabbitmq_data
-  register: exists
-  changed_when: False
-  failed_when: False
-  always_run: True
+- name: Check if all rabbit hostnames are resolvable
+  command: "getent ahostsv4 {{ hostvars[item]['ansible_hostname'] }}"
+  changed_when: false
+  register: rabbitmq_hostnames
+  with_items: groups['rabbitmq']
 
-- name: Starting RabbitMQ data container
-  docker:
-    docker_api_version: "{{ docker_api_version }}"
-    net: host
-    pull: "{{ docker_pull_policy }}"
-    restart_policy: "{{ docker_restart_policy }}"
-    restart_policy_retry: "{{ docker_restart_policy_retry }}"
-    state: reloaded
-    registry: "{{ docker_registry }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    insecure_registry: "{{ docker_insecure_registry }}"
-    name: rabbitmq_data
-    image: "{{ rabbitmq_data_image_full }}"
-    volumes: "/var/lib/rabbitmq/"
+- fail: msg="Hostname has to resolve to IP address of api_interface"
+  with_items: rabbitmq_hostnames.results
+  when: "{% set ip=item.stdout.split(' ')[0] %}'{{ hostvars[item['item']]['ansible_' + hostvars[item['item']]['api_interface']]['ipv4']['address'] }}' != '{{ ip }}'"
 
-- name: Starting RabbitMQ bootstrap container
-  docker:
-    docker_api_version: "{{ docker_api_version }}"
-    net: host
-    pull: "{{ docker_pull_policy }}"
-    restart_policy: "no"
-    restart_policy_retry: "{{ docker_restart_policy_retry }}"
-    state: reloaded
-    registry: "{{ docker_registry }}"
-    username: "{{ docker_registry_username }}"
-    password: "{{ docker_registry_password }}"
-    insecure_registry: "{{ docker_insecure_registry }}"
-    name: rabbitmq_bootstrap
-    image: "{{ rabbitmq_image_full }}"
-    volumes: "{{ node_config_directory }}/rabbitmq/:/opt/kolla/rabbitmq/:ro"
-    volumes_from:
-      - "rabbitmq_data"
-    env:
+- name: Creating rabbitmq volume
+  kolla_docker:
+    action: "create_volume"
+    common_options: "{{ docker_common_options }}"
+    name: "rabbitmq"
+  register: rabbitmq_volume
+
+- name: Running RabbitMQ bootstrap container
+  kolla_docker:
+    action: "start_container"
+    common_options: "{{ docker_common_options }}"
+    detach: False
+    environment:
       KOLLA_BOOTSTRAP:
       KOLLA_CONFIG_STRATEGY: "{{ config_strategy }}"
       RABBITMQ_CLUSTER_COOKIE: "{{ rabbitmq_cluster_cookie }}"
-  when: exists.rc != 0
-
-- name: Waiting for bootstrap container
-  command: docker wait rabbitmq_bootstrap
-  when: exists.rc != 0
-
-- name: Cleaning up boostrap container
-  docker:
     image: "{{ rabbitmq_image_full }}"
+    labels:
+      BOOTSTRAP:
     name: "rabbitmq_bootstrap"
-    state: "absent"
+    restart_policy: "never"
+    volumes:
+      - "{{ node_config_directory }}/rabbitmq/:{{ container_config_directory }}/:ro"
+      - "rabbitmq:/var/lib/rabbitmq/"
+  when: rabbitmq_volume | changed

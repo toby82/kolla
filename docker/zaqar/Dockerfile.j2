@@ -1,32 +1,29 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}openstack-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
 {% if install_type == 'binary' %}
-    {% if base_distro in ['fedora', 'centos', 'oraclelinux'] %}
+    {% if base_distro in ['centos', 'fedora', 'oraclelinux', 'rhel'] %}
 
-RUN yum -y install openstack-zaqar && yum clean all
-
-    {% elif base_distro in ['ubuntu', 'debian'] %}
-
-RUN echo '{{ install_type }} not yet available for {{ base_distro }}' \
-    && /bin/false
+RUN yum -y install openstack-zaqar \
+    && yum clean all
 
     {% endif %}
 {% elif install_type == 'source' %}
 
-ADD zaqar.tar /
-RUN ln -s /zaqar-* zaqar \
+ADD zaqar-archive /zaqar-source
+RUN ln -s zaqar-source/* zaqar \
     && useradd --user-group zaqar \
-    && pip --no-cache-dir install /zaqar \
+    && /var/lib/kolla/venv/bin/pip --no-cache-dir install --upgrade -c requirements/upper-constraints.txt /zaqar \
     && mkdir -p /etc/zaqar /var/log/zaqar /home/zaqar \
     && cp -r /zaqar/etc/* /etc/zaqar/ \
     && chown -R zaqar: /etc/zaqar /var/log/zaqar /home/zaqar
 
 {% endif %}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
-
-CMD ["/start.sh"]
+COPY extend_start.sh /usr/local/bin/kolla_extend_start
+RUN chmod 755 /usr/local/bin/kolla_extend_start \
+    && usermod -a -G kolla zaqar
 
 {{ include_footer }}
+
+USER zaqar

@@ -1,7 +1,7 @@
-FROM {{ namespace }}/{{ base_distro }}-{{ install_type }}-ceph-base:{{ tag }}
-MAINTAINER Kolla Project (https://launchpad.net/kolla)
+FROM {{ namespace }}/{{ image_prefix }}ceph-base:{{ tag }}
+MAINTAINER {{ maintainer }}
 
-COPY start.sh /
-COPY config-external.sh /opt/kolla/
+COPY extend_start.sh /usr/local/bin/kolla_extend_start
+RUN chmod 755 /usr/local/bin/kolla_extend_start
 
-CMD ["/start.sh"]
+{{ include_footer }}

@@ -1,38 +1,34 @@
 ---
-- include: ../../config.yml
-  vars:
-    service_name: "glance-registry"
-    config_source:
-      - "roles/glance/templates/glance-registry.conf.j2"
-      - "/etc/kolla/config/global.conf"
-      - "/etc/kolla/config/database.conf"
-      - "/etc/kolla/config/messaging.conf"
-      - "/etc/kolla/config/glance.conf"
-      - "/etc/kolla/config/glance/glance-registry.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/glance-registry/glance.conf_minimal"
-      - "{{ node_templates_directory }}/glance-registry/glance.conf_global"
-      - "{{ node_templates_directory }}/glance-registry/glance.conf_database"
-      - "{{ node_templates_directory }}/glance-registry/glance.conf_messaging"
-      - "{{ node_templates_directory }}/glance-registry/glance.conf_augment"
-      - "{{ node_templates_directory }}/glance-registry/glance-registry.conf_augment"
-    config_dest: "{{ node_config_directory }}/glance-registry/glance-registry.conf"
+- name: Ensuring config directories exist
+  file:
+    path: "{{ node_config_directory }}/{{ item }}"
+    state: "directory"
+    recurse: yes
+  with_items:
+    - "glance-api"
+    - "glance-registry"
 
-- include: ../../config.yml
-  vars:
-    service_name: "glance-api"
-    config_source:
-      - "roles/glance/templates/glance-api.conf.j2"
+- name: Copying over config.json files for services
+  template:
+    src: "{{ item }}.json.j2"
+    dest: "{{ node_config_directory }}/{{ item }}/config.json"
+  with_items:
+    - "glance-api"
+    - "glance-registry"
+
+- name: Copying over glance-*.conf
+  merge_configs:
+    vars:
+      service_name: "{{ item }}"
+    sources:
+      - "{{ role_path }}/templates/{{ item }}.conf.j2"
       - "/etc/kolla/config/global.conf"
       - "/etc/kolla/config/database.conf"
       - "/etc/kolla/config/messaging.conf"
       - "/etc/kolla/config/glance.conf"
-      - "/etc/kolla/config/glance/glance-api.conf"
-    config_template_dest:
-      - "{{ node_templates_directory }}/glance-api/glance.conf_minimal"
-      - "{{ node_templates_directory }}/glance-api/glance.conf_global"
-      - "{{ node_templates_directory }}/glance-api/glance.conf_database"
-      - "{{ node_templates_directory }}/glance-api/glance.conf_messaging"
-      - "{{ node_templates_directory }}/glance-api/glance.conf_augment"
-      - "{{ node_templates_directory }}/glance-api/glance-api.conf_augment"
-    config_dest: "{{ node_config_directory }}/glance-api/glance-api.conf"
+      - "/etc/kolla/config/glance/{{ item }}.conf"
+      - "/etc/kolla/config/glance/{{ inventory_hostname }}/{{ item }}.conf"
+    dest: "{{ node_config_directory }}/{{ item }}/{{ item }}.conf"
+  with_items:
+    - "glance-api"
+    - "glance-registry"
